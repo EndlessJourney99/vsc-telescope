@@ -1,4 +1,4 @@
-import { ResultItem } from '../types/messages';
+import { ResultItem, ContentResultItem } from '../types/messages';
 
 const ITEM_HEIGHT = 42;
 const OVERSCAN = 5;
@@ -171,4 +171,171 @@ function escapeHtml(str: string): string {
 		.replace(/</g, '&lt;')
 		.replace(/>/g, '&gt;')
 		.replace(/"/g, '&quot;');
+}
+
+const CONTENT_ITEM_HEIGHT = 52;
+
+export class ContentUI {
+	private items: ContentResultItem[] = [];
+	private selectedIndex = 0;
+
+	private resultsList!: HTMLElement;
+	private scrollTrack!: HTMLElement;
+	private scrollViewport!: HTMLElement;
+	private statusLine!: HTMLElement;
+	private previewHeader!: HTMLElement;
+	private previewLines!: HTMLElement;
+	private searchInput!: HTMLInputElement;
+
+	private onFocus!: (filePath: string, lineNumber: number) => void;
+	private onSelect!: (filePath: string, lineNumber: number) => void;
+
+	build(
+		container: HTMLElement,
+		onFocus: (filePath: string, lineNumber: number) => void,
+		onSelect: (filePath: string, lineNumber: number) => void
+	): HTMLInputElement {
+		this.onFocus = onFocus;
+		this.onSelect = onSelect;
+
+		container.innerHTML = `
+			<div id="backdrop">
+				<div id="modal">
+					<div id="input-container">
+						<input id="search-input" type="text" placeholder="Search in files..." autocomplete="off" spellcheck="false" />
+					</div>
+					<div id="status-line">Type to search file contents</div>
+					<div id="content">
+						<div id="results-list">
+							<div id="scroll-track">
+								<div id="scroll-viewport"></div>
+							</div>
+						</div>
+						<div id="preview-pane">
+							<div id="preview-header"></div>
+							<div id="preview-lines"></div>
+						</div>
+					</div>
+				</div>
+			</div>
+		`;
+
+		this.resultsList = document.getElementById('results-list')!;
+		this.scrollTrack = document.getElementById('scroll-track')!;
+		this.scrollViewport = document.getElementById('scroll-viewport')!;
+		this.statusLine = document.getElementById('status-line')!;
+		this.previewHeader = document.getElementById('preview-header')!;
+		this.previewLines = document.getElementById('preview-lines')!;
+		this.searchInput = document.getElementById('search-input') as HTMLInputElement;
+
+		this.resultsList.addEventListener('scroll', () => this.render());
+
+		return this.searchInput;
+	}
+
+	appendItems(items: ContentResultItem[]): void {
+		this.items.push(...items);
+		this.statusLine.textContent = `${this.items.length} matches`;
+		if (this.items.length <= items.length && items[0]) {
+			this.selectedIndex = 0;
+			this.onFocus(items[0].filePath, items[0].lineNumber);
+		}
+		this.render();
+	}
+
+	clearItems(): void {
+		this.items = [];
+		this.selectedIndex = 0;
+		this.previewLines.innerHTML = '';
+		this.previewHeader.textContent = '';
+		this.statusLine.textContent = 'Type to search file contents';
+		this.render();
+	}
+
+	setPreview(filePath: string, content: string, lineNumber: number): void {
+		const filename = filePath.split('/').pop() ?? filePath;
+		this.previewHeader.textContent = `${filename}:${lineNumber}`;
+
+		const lines = content.split('\n');
+		this.previewLines.innerHTML = '';
+
+		lines.forEach((text, idx) => {
+			const lineEl = document.createElement('div');
+			lineEl.className = 'preview-line' + (idx + 1 === lineNumber ? ' preview-line-highlight' : '');
+			lineEl.textContent = text;
+			this.previewLines.appendChild(lineEl);
+		});
+
+		// Scroll highlighted line into view in the preview pane
+		const highlighted = this.previewLines.querySelector('.preview-line-highlight') as HTMLElement | null;
+		if (highlighted) {
+			highlighted.scrollIntoView({ block: 'center' });
+		}
+	}
+
+	moveSelection(direction: 'up' | 'down'): void {
+		if (this.items.length === 0) { return; }
+		if (direction === 'down') {
+			this.selectedIndex = Math.min(this.selectedIndex + 1, this.items.length - 1);
+		} else {
+			this.selectedIndex = Math.max(this.selectedIndex - 1, 0);
+		}
+		this.scrollToSelected();
+		const item = this.items[this.selectedIndex];
+		if (item) { this.onFocus(item.filePath, item.lineNumber); }
+		this.render();
+	}
+
+	getSelectedItem(): ContentResultItem | undefined {
+		return this.items[this.selectedIndex];
+	}
+
+	private scrollToSelected(): void {
+		const top = this.selectedIndex * CONTENT_ITEM_HEIGHT;
+		const bottom = top + CONTENT_ITEM_HEIGHT;
+		const scrollTop = this.resultsList.scrollTop;
+		const height = this.resultsList.clientHeight;
+		if (top < scrollTop) {
+			this.resultsList.scrollTop = top;
+		} else if (bottom > scrollTop + height) {
+			this.resultsList.scrollTop = bottom - height;
+		}
+	}
+
+	private render(): void {
+		const count = this.items.length;
+		this.scrollTrack.style.height = `${count * CONTENT_ITEM_HEIGHT}px`;
+
+		const scrollTop = this.resultsList.scrollTop;
+		const visibleHeight = this.resultsList.clientHeight;
+		const start = Math.max(0, Math.floor(scrollTop / CONTENT_ITEM_HEIGHT) - OVERSCAN);
+		const end = Math.min(count, Math.ceil((scrollTop + visibleHeight) / CONTENT_ITEM_HEIGHT) + OVERSCAN);
+
+		this.scrollViewport.style.transform = `translateY(${start * CONTENT_ITEM_HEIGHT}px)`;
+		this.scrollViewport.innerHTML = '';
+
+		for (let i = start; i < end; i++) {
+			const item = this.items[i];
+			const el = document.createElement('div');
+			el.className = 'result-item content-item' + (i === this.selectedIndex ? ' selected' : '');
+
+			const filename = item.relativePath.split('/').pop() ?? item.relativePath;
+			el.innerHTML = `
+				<span class="content-meta">${escapeHtml(filename)}<span class="content-line-num">:${item.lineNumber}</span></span>
+				<span class="content-text">${escapeHtml(item.lineText.trim())}</span>
+			`;
+
+			el.addEventListener('mouseenter', () => {
+				this.selectedIndex = i;
+				this.onFocus(item.filePath, item.lineNumber);
+				this.render();
+			});
+			el.addEventListener('click', () => {
+				this.selectedIndex = i;
+				this.onSelect(item.filePath, item.lineNumber);
+			});
+
+			this.scrollViewport.appendChild(el);
+		}
+	}
 }

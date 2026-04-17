@@ -1,5 +1,5 @@
 import { ExtensionMessage, WebviewMessage } from '../types/messages';
-import { TelescopeUI } from './ui';
+import { ContentUI } from './ui';
 import { attachKeybindings, vscode } from './keybindings';
 import styles from './styles.css';
 
@@ -8,16 +8,16 @@ const styleEl = document.createElement('style');
 styleEl.textContent = styles;
 document.head.appendChild(styleEl);
 
-const ui = new TelescopeUI();
+const ui = new ContentUI();
 
 window.addEventListener('DOMContentLoaded', () => {
 	const input = ui.build(
 		document.body,
-		(filePath) => {
-			vscode.postMessage({ type: 'item:focus', filePath } as WebviewMessage);
+		(filePath, lineNumber) => {
+			vscode.postMessage({ type: 'content:focus', filePath, lineNumber } as WebviewMessage);
 		},
-		(filePath) => {
-			vscode.postMessage({ type: 'item:select', filePath } as WebviewMessage);
+		(filePath, lineNumber) => {
+			vscode.postMessage({ type: 'content:select', filePath, lineNumber } as WebviewMessage);
 		}
 	);
 
@@ -26,38 +26,37 @@ window.addEventListener('DOMContentLoaded', () => {
 		onSelect: () => {
 			const item = ui.getSelectedItem();
 			if (item) {
-				vscode.postMessage({ type: 'item:select', filePath: item.filePath } as WebviewMessage);
+				vscode.postMessage({ type: 'content:select', filePath: item.filePath, lineNumber: item.lineNumber } as WebviewMessage);
 			}
 		},
-		onClose: () => { /* vscode.postMessage already called in keybindings.ts */ },
+		onClose: () => { /* handled in keybindings.ts */ },
 	});
 
 	input.addEventListener('input', () => {
 		vscode.postMessage({ type: 'query:change', query: input.value } as WebviewMessage);
 	});
 
-	// Ensure focus
 	input.focus();
-
-	// Signal to the extension host that the webview is ready to receive messages
 	vscode.postMessage({ type: 'webview:ready' } as WebviewMessage);
 });
 
 window.addEventListener('message', (event: MessageEvent) => {
 	const msg = event.data as ExtensionMessage;
 	switch (msg.type) {
-		case 'results:clear':
+		case 'content:clear':
 			ui.clearItems();
 			break;
-		case 'results:stream':
+		case 'content:stream':
 			ui.appendItems(msg.items);
 			break;
-		case 'results:done':
+		case 'content:done':
 			break;
-		case 'preview:content':
-			ui.setPreview(msg.filePath, msg.content);
+		case 'content:preview':
+			ui.setPreview(msg.filePath, msg.content, msg.lineNumber);
 			break;
 		case 'init':
+			break;
+		default:
 			break;
 	}
 });
