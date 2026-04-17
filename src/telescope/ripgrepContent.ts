@@ -20,6 +20,7 @@ export function spawnRipgrepContent(
 ): ChildProcess {
 	const args = [
 		'--json',
+		'--ignore-case',
 		'--hidden',
 		'--glob', '!.git',
 		'--glob', '!node_modules',
