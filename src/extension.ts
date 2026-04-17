@@ -9,6 +9,12 @@ export function activate(context: vscode.ExtensionContext) {
 		}),
 		vscode.commands.registerCommand('vsc-telescope.searchContent', () => {
 			ContentSearchPanel.open(context);
+		}),
+		vscode.commands.registerCommand('vsc-telescope.navigateDown', () => {
+			TelescopePanel.moveDown();
+		}),
+		vscode.commands.registerCommand('vsc-telescope.navigateUp', () => {
+			TelescopePanel.moveUp();
 		})
 	);
 }

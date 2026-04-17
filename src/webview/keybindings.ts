@@ -22,6 +22,10 @@ export function attachKeybindings(input: HTMLInputElement, handlers: KeybindingH
 				e.preventDefault();
 				handlers.onMove('up');
 				break;
+			case 'Tab':
+				e.preventDefault();
+				handlers.onMove(e.shiftKey ? 'up' : 'down');
+				break;
 			case 'Enter':
 				e.preventDefault();
 				handlers.onSelect();

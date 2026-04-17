@@ -20,6 +20,14 @@
       {
         "command": "vsc-telescope.searchContent",
         "title": "Telescope: Search in Files"
+      },
+      {
+        "command": "vsc-telescope.navigateDown",
+        "title": "Telescope: Navigate Down"
+      },
+      {
+        "command": "vsc-telescope.navigateUp",
+        "title": "Telescope: Navigate Up"
       }
     ],
     "keybindings": [
@@ -33,6 +41,16 @@
         "command": "vsc-telescope.searchContent",
         "key": "alt+shift+f",
         "mac": "alt+shift+f"
+      },
+      {
+        "command": "vsc-telescope.navigateDown",
+        "key": "tab",
+        "when": "inQuickOpen"
+      },
+      {
+        "command": "vsc-telescope.navigateUp",
+        "key": "shift+tab",
+        "when": "inQuickOpen"
       }
     ]
   },
