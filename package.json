@@ -1,6 +1,6 @@
 {
   "name": "vsc-telescope",
-  "displayName": "vsc-telescope",
+  "displayName": "VSC Telescope",
   "description": "Telescope for vscode",
   "version": "0.0.1",
   "engines": {
