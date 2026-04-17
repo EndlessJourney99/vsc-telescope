@@ -19,7 +19,7 @@ export class TelescopePanel {
 		const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? '';
 
 		this.quickPick = vscode.window.createQuickPick<FilePickItem>();
-		this.quickPick.placeholder = 'Find files...';
+		this.quickPick.placeholder = 'Find files... (Tab / Shift+Tab to navigate)';
 		this.quickPick.matchOnDescription = true;
 
 		this.quickPick.onDidAccept(() => {
@@ -43,6 +43,24 @@ export class TelescopePanel {
 
 	static dispose(): void {
 		TelescopePanel.instance?.close();
+	}
+
+	static moveDown(): void {
+		const qp = TelescopePanel.instance?.quickPick;
+		if (!qp || qp.items.length === 0) { return; }
+		const current = qp.activeItems[0];
+		const idx = current ? qp.items.indexOf(current) : -1;
+		const next = qp.items[Math.min(idx + 1, qp.items.length - 1)];
+		if (next) { qp.activeItems = [next]; }
+	}
+
+	static moveUp(): void {
+		const qp = TelescopePanel.instance?.quickPick;
+		if (!qp || qp.items.length === 0) { return; }
+		const current = qp.activeItems[0];
+		const idx = current ? qp.items.indexOf(current) : 1;
+		const prev = qp.items[Math.max(idx - 1, 0)];
+		if (prev) { qp.activeItems = [prev]; }
 	}
 
 	private startSearch(cwd: string): void {
