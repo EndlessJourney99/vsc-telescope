@@ -149,6 +149,56 @@ body {
 	line-height: 1.5;
 }
 
+/* Content search items */
+.content-item {
+	height: 52px;
+	justify-content: center;
+}
+
+.content-meta {
+	font-size: 11px;
+	color: var(--vscode-descriptionForeground, #888);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.content-item.selected .content-meta {
+	color: var(--vscode-list-activeSelectionForeground, #ccc);
+	opacity: 0.8;
+}
+
+.content-line-num {
+	color: var(--vscode-terminal-ansiGreen, #4ec9b0);
+}
+
+.content-text {
+	font-family: var(--vscode-editor-font-family, monospace);
+	font-size: 12px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/* Preview lines for content search */
+#preview-lines {
+	font-family: var(--vscode-editor-font-family, 'Courier New', monospace);
+	font-size: var(--vscode-editor-font-size, 13px);
+	line-height: 1.5;
+	overflow: auto;
+}
+
+.preview-line {
+	white-space: pre;
+	padding: 0 4px;
+	color: var(--vscode-editor-foreground);
+}
+
+.preview-line-highlight {
+	background: var(--vscode-editor-findMatchHighlightBackground, rgba(255, 200, 0, 0.2));
+	outline: 1px solid var(--vscode-editor-findMatchHighlightBorder, rgba(255, 200, 0, 0.4));
+}
+
 ::-webkit-scrollbar {
 	width: 6px;
 	height: 6px;

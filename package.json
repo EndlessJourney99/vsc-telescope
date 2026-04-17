@@ -16,6 +16,10 @@
       {
         "command": "vsc-telescope.open",
         "title": "Telescope: Find Files"
+      },
+      {
+        "command": "vsc-telescope.searchContent",
+        "title": "Telescope: Search in Files"
       }
     ],
     "keybindings": [
@@ -24,6 +28,11 @@
         "key": "alt+shift+p",
         "mac": "alt+shift+p",
         "when": "!inQuickOpen"
+      },
+      {
+        "command": "vsc-telescope.searchContent",
+        "key": "alt+shift+f",
+        "mac": "alt+shift+f"
       }
     ]
   },
