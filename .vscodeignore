@@ -2,9 +2,14 @@
 .vscode-test/**
 out/**
 node_modules/**
+!node_modules/@vscode/ripgrep/**
 src/**
 .gitignore
 .yarnrc
+.env
+.taskosaur_session
+.claude/**
+CLAUDE.md
 esbuild.js
 vsc-extension-quickstart.md
 **/tsconfig.json
