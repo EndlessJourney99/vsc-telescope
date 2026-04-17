@@ -3,6 +3,7 @@
 	"displayName": "VSC Telescope",
 	"description": "Telescope for vscode",
 	"version": "0.0.1",
+  "publisher": "EndlessJourney99",
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/EndlessJourney99/vsc-telescope"
