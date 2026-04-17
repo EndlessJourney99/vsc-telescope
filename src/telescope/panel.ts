@@ -1,129 +1,79 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { ChildProcess } from 'child_process';
 import { spawnRipgrep } from './ripgrep';
-import { fuzzyFilter } from './fuzzy';
-import { getFilePreview } from './preview';
-import { ResultItem, WebviewMessage } from '../types/messages';
+import { ResultItem } from '../types/messages';
 
-function generateNonce(): string {
-	let text = '';
-	const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-	for (let i = 0; i < 32; i++) {
-		text += possible.charAt(Math.floor(Math.random() * possible.length));
-	}
-
-	return text;
+interface FilePickItem extends vscode.QuickPickItem {
+	filePath: string;
 }
 
 export class TelescopePanel {
 	private static instance: TelescopePanel | undefined;
 
-	private readonly panel: vscode.WebviewPanel;
-	private readonly context: vscode.ExtensionContext;
-	private readonly previousEditor: vscode.TextEditor | undefined;
+	private readonly quickPick: vscode.QuickPick<FilePickItem>;
 	private rgProcess: ChildProcess | undefined;
-	private debounceTimer: ReturnType<typeof setTimeout> | undefined;
 	private allItems: ResultItem[] = [];
-	private currentQuery = '';
 
-	private constructor(context: vscode.ExtensionContext) {
-		this.context = context;
-		this.previousEditor = vscode.window.activeTextEditor;
-		this.panel = vscode.window.createWebviewPanel(
-			'vsc-telescope',
-			'Telescope',
-			{ viewColumn: vscode.ViewColumn.Active, preserveFocus: false },
-			{
-				enableScripts: true,
-				localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, 'dist')],
-				retainContextWhenHidden: false,
+	private constructor() {
+		const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? '';
+
+		this.quickPick = vscode.window.createQuickPick<FilePickItem>();
+		this.quickPick.placeholder = 'Find files...';
+		this.quickPick.matchOnDescription = true;
+
+		this.quickPick.onDidAccept(() => {
+			const selected = this.quickPick.activeItems[0];
+			if (selected) {
+				vscode.window.showTextDocument(vscode.Uri.file(selected.filePath), { preview: false });
 			}
-		);
+			this.close();
+		});
 
-		this.panel.webview.html = this.getHtml();
-		this.panel.webview.onDidReceiveMessage(this.handleMessage, this, context.subscriptions);
-		this.panel.onDidDispose(this.dispose.bind(this), null, context.subscriptions);
+		this.quickPick.onDidHide(() => this.close());
+
+		this.quickPick.show();
+		this.startSearch(workspacePath);
 	}
 
-	static open(context: vscode.ExtensionContext): void {
-		if (TelescopePanel.instance) {
-			TelescopePanel.instance.panel.reveal(vscode.ViewColumn.One);
-			return;
-		}
-		TelescopePanel.instance = new TelescopePanel(context);
+	static open(_context: vscode.ExtensionContext): void {
+		if (TelescopePanel.instance) { return; }
+		TelescopePanel.instance = new TelescopePanel();
 	}
 
 	static dispose(): void {
-		TelescopePanel.instance?.panel.dispose();
+		TelescopePanel.instance?.close();
 	}
 
-	private handleMessage = async (msg: WebviewMessage) => {
-		switch (msg.type) {
-			case 'webview:ready': {
-				const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? '';
-				this.panel.webview.postMessage({ type: 'init', workspacePath });
-				this.startSearch('', workspacePath);
-				break;
-			}
-			case 'query:change': {
-				this.currentQuery = msg.query;
-				if (this.debounceTimer) { clearTimeout(this.debounceTimer); }
-				this.debounceTimer = setTimeout(() => {
-					const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? '';
-					this.startSearch(msg.query, workspacePath);
-				}, 80);
-				break;
-			}
-			case 'item:focus': {
-				const preview = await getFilePreview(msg.filePath);
-				this.panel.webview.postMessage({
-					type: 'preview:content',
-					content: preview.content,
-					language: preview.language,
-					filePath: msg.filePath,
-				});
-				break;
-			}
-			case 'item:select': {
-				const uri = vscode.Uri.file(msg.filePath);
-				await vscode.window.showTextDocument(uri, { preview: false });
-				this.panel.dispose();
-				break;
-			}
-			case 'close': {
-				this.panel.dispose();
-				if (this.previousEditor) {
-					await vscode.window.showTextDocument(this.previousEditor.document, {
-						viewColumn: this.previousEditor.viewColumn,
-						preserveFocus: false,
-					});
-				}
-				break;
-			}
-		}
-	};
-
-	private startSearch(query: string, cwd: string): void {
+	private startSearch(cwd: string): void {
 		if (!cwd) { return; }
 
 		this.killRg();
 		this.allItems = [];
-		this.panel.webview.postMessage({ type: 'results:clear' });
+		this.quickPick.items = [];
+		this.quickPick.busy = true;
 
 		this.rgProcess = spawnRipgrep(
-			query,
+			'',
 			cwd,
 			(items) => {
 				this.allItems.push(...items);
-				const filtered = fuzzyFilter(this.currentQuery, items);
-				if (filtered.length > 0) {
-					this.panel.webview.postMessage({ type: 'results:stream', items: filtered });
-				}
+				this.quickPick.items = this.allItems.map(item => this.toPickItem(item));
 			},
 			() => {
-				this.panel.webview.postMessage({ type: 'results:done' });
+				this.quickPick.busy = false;
 			}
 		);
+	}
+
+	private toPickItem(item: ResultItem): FilePickItem {
+		const basename = path.basename(item.relativePath);
+		const dir = path.dirname(item.relativePath);
+		return {
+			label: `$(file) ${basename}`,
+			description: dir === '.' ? '' : dir,
+			filePath: item.filePath,
+		};
 	}
 
 	private killRg(): void {
@@ -133,30 +83,10 @@ export class TelescopePanel {
 		}
 	}
 
-	private dispose(): void {
-		this.killRg();
-		if (this.debounceTimer) { clearTimeout(this.debounceTimer); }
+	private close(): void {
+		if (!TelescopePanel.instance) { return; }
 		TelescopePanel.instance = undefined;
-	}
-
-	private getHtml(): string {
-		const webview = this.panel.webview;
-		const scriptUri = webview.asWebviewUri(
-			vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'webview.js')
-		);
-		const nonce = generateNonce();
-		return `<!DOCTYPE html>
-<html lang="en">
-<head>
-	<meta charset="UTF-8">
-	<meta http-equiv="Content-Security-Policy"
-		content="default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline';">
-	<meta name="viewport" content="width=device-width,initial-scale=1">
-	<title>Telescope</title>
-</head>
-<body style="margin:0;padding:0;overflow:hidden;">
-	<script nonce="${nonce}" src="${scriptUri}"></script>
-</body>
-</html>`;
+		this.killRg();
+		this.quickPick.dispose();
 	}
 }
