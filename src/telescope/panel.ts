@@ -11,6 +11,7 @@ function generateNonce(): string {
 	for (let i = 0; i < 32; i++) {
 		text += possible.charAt(Math.floor(Math.random() * possible.length));
 	}
+
 	return text;
 }
 
@@ -19,6 +20,7 @@ export class TelescopePanel {
 
 	private readonly panel: vscode.WebviewPanel;
 	private readonly context: vscode.ExtensionContext;
+	private readonly previousEditor: vscode.TextEditor | undefined;
 	private rgProcess: ChildProcess | undefined;
 	private debounceTimer: ReturnType<typeof setTimeout> | undefined;
 	private allItems: ResultItem[] = [];
@@ -26,10 +28,11 @@ export class TelescopePanel {
 
 	private constructor(context: vscode.ExtensionContext) {
 		this.context = context;
+		this.previousEditor = vscode.window.activeTextEditor;
 		this.panel = vscode.window.createWebviewPanel(
 			'vsc-telescope',
 			'Telescope',
-			{ viewColumn: vscode.ViewColumn.One, preserveFocus: false },
+			{ viewColumn: vscode.ViewColumn.Active, preserveFocus: false },
 			{
 				enableScripts: true,
 				localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, 'dist')],
@@ -89,6 +92,12 @@ export class TelescopePanel {
 			}
 			case 'close': {
 				this.panel.dispose();
+				if (this.previousEditor) {
+					await vscode.window.showTextDocument(this.previousEditor.document, {
+						viewColumn: this.previousEditor.viewColumn,
+						preserveFocus: false,
+					});
+				}
 				break;
 			}
 		}
@@ -145,10 +154,9 @@ export class TelescopePanel {
 	<meta name="viewport" content="width=device-width,initial-scale=1">
 	<title>Telescope</title>
 </head>
-<body style="margin:0;padding:0;overflow:hidden;background:transparent;">
+<body style="margin:0;padding:0;overflow:hidden;">
 	<script nonce="${nonce}" src="${scriptUri}"></script>
 </body>
 </html>`;
 	}
 }
-
