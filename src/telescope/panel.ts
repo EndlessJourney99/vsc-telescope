@@ -40,10 +40,6 @@ export class TelescopePanel {
 		this.panel.webview.html = this.getHtml();
 		this.panel.webview.onDidReceiveMessage(this.handleMessage, this, context.subscriptions);
 		this.panel.onDidDispose(this.dispose.bind(this), null, context.subscriptions);
-
-		const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? '';
-		this.panel.webview.postMessage({ type: 'init', workspacePath });
-		this.startSearch('', workspacePath);
 	}
 
 	static open(context: vscode.ExtensionContext): void {
@@ -60,6 +56,12 @@ export class TelescopePanel {
 
 	private handleMessage = async (msg: WebviewMessage) => {
 		switch (msg.type) {
+			case 'webview:ready': {
+				const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? '';
+				this.panel.webview.postMessage({ type: 'init', workspacePath });
+				this.startSearch('', workspacePath);
+				break;
+			}
 			case 'query:change': {
 				this.currentQuery = msg.query;
 				if (this.debounceTimer) { clearTimeout(this.debounceTimer); }

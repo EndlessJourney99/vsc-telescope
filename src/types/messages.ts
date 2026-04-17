@@ -11,6 +11,7 @@ export type ExtensionMessage =
 	| { type: 'init'; workspacePath: string };
 
 export type WebviewMessage =
+	| { type: 'webview:ready' }
 	| { type: 'query:change'; query: string }
 	| { type: 'item:select'; filePath: string }
 	| { type: 'item:focus'; filePath: string }

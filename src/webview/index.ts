@@ -38,6 +38,9 @@ window.addEventListener('DOMContentLoaded', () => {
 
 	// Ensure focus
 	input.focus();
+
+	// Signal to the extension host that the webview is ready to receive messages
+	vscode.postMessage({ type: 'webview:ready' } as WebviewMessage);
 });
 
 window.addEventListener('message', (event: MessageEvent) => {
