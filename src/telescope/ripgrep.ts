@@ -3,12 +3,14 @@ import { rgPath } from '@vscode/ripgrep';
 import { ResultItem } from '../types/messages';
 
 export function spawnRipgrep(
-	query: string,
+	glob: string | null,
 	cwd: string,
 	onBatch: (items: ResultItem[]) => void,
 	onDone: () => void
 ): ChildProcess {
-	const args = ['--files', '--hidden', '--glob', '!.git', '--glob', '!node_modules', cwd];
+	const args = ['--files', '--hidden', '--glob', '!.git', '--glob', '!node_modules'];
+	if (glob) { args.push('--glob', glob); }
+	args.push(cwd);
 	const proc = spawn(rgPath, args, { cwd });
 
 	let buffer = '';

@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { ChildProcess } from 'child_process';
 import { spawnRipgrepContent } from './ripgrepContent';
+import { parseQuery } from './queryParser';
 import { WebviewMessage } from '../types/messages';
 
 function generateNonce(): string {
@@ -112,8 +113,12 @@ export class ContentSearchPanel {
 
 		if (!query.trim()) { return; }
 
+		const { text, glob } = parseQuery(query);
+		if (!text.trim()) { return; }
+
 		this.rgProcess = spawnRipgrepContent(
-			query,
+			text,
+			glob,
 			cwd,
 			(items) => {
 				this.panel.webview.postMessage({ type: 'content:stream', items });

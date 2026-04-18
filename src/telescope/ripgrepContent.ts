@@ -14,6 +14,7 @@ interface RgJsonMatch {
 
 export function spawnRipgrepContent(
 	query: string,
+	glob: string | null,
 	cwd: string,
 	onBatch: (items: ContentResultItem[]) => void,
 	onDone: () => void
@@ -25,9 +26,9 @@ export function spawnRipgrepContent(
 		'--glob', '!.git',
 		'--glob', '!node_modules',
 		'--max-count', '5',
-		query,
-		cwd,
 	];
+	if (glob) { args.push('--glob', glob); }
+	args.push(query, cwd);
 	const proc = spawn(rgPath, args, { cwd });
 
 	let buffer = '';
