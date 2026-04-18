@@ -31,14 +31,22 @@ export class TelescopePanel {
 				return;
 			}
 			const { text, glob } = parseQuery(value);
-			if (glob !== this.currentGlob) {
-				this.currentGlob = glob;
-				this.startSearch(workspacePath);
-			}
 			if (glob !== null) {
+				// User typed a {ext} token — update glob, strip token from input
+				if (glob !== this.currentGlob) {
+					this.currentGlob = glob;
+					this.quickPick.title = `Type filter: ${glob}`;
+					this.startSearch(workspacePath);
+				}
 				this.pendingValue = text;
 				this.quickPick.value = text;
+			} else if (value === '' && this.currentGlob !== null) {
+				// User cleared the input — also clear the glob filter
+				this.currentGlob = null;
+				this.quickPick.title = undefined;
+				this.startSearch(workspacePath);
 			}
+			// No {ext} and input not empty: keep currentGlob as-is
 		});
 
 		this.quickPick.onDidAccept(() => {
