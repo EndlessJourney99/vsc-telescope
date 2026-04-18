@@ -3,6 +3,7 @@ import * as path from 'path';
 import { ChildProcess } from 'child_process';
 import { spawnRipgrep } from './ripgrep';
 import { parseQuery } from './queryParser';
+import { fuzzyFilter } from './fuzzy';
 import { ResultItem } from '../types/messages';
 
 interface FilePickItem extends vscode.QuickPickItem {
@@ -16,37 +17,25 @@ export class TelescopePanel {
 	private rgProcess: ChildProcess | undefined;
 	private allItems: ResultItem[] = [];
 	private currentGlob: string | null = null;
-	private pendingValue: string | null = null;
 
 	private constructor() {
 		const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? '';
 
 		this.quickPick = vscode.window.createQuickPick<FilePickItem>();
-		this.quickPick.placeholder = 'Find files... type {ext} to filter by file type';
+		this.quickPick.placeholder = 'Find files... append {ext} to filter by type';
 		this.quickPick.matchOnDescription = true;
 
 		this.quickPick.onDidChangeValue((value) => {
-			if (this.pendingValue !== null && value === this.pendingValue) {
-				this.pendingValue = null;
-				return;
-			}
 			const { text, glob } = parseQuery(value);
-			if (glob !== null) {
-				// User typed a {ext} token — update glob, strip token from input
-				if (glob !== this.currentGlob) {
-					this.currentGlob = glob;
-					this.quickPick.title = `Type filter: ${glob}`;
-					this.startSearch(workspacePath);
-				}
-				this.pendingValue = text;
-				this.quickPick.value = text;
-			} else if (value === '' && this.currentGlob !== null) {
-				// User cleared the input — also clear the glob filter
-				this.currentGlob = null;
-				this.quickPick.title = undefined;
+
+			if (glob !== this.currentGlob) {
+				this.currentGlob = glob;
+				this.quickPick.title = glob ? `Filter: ${glob}` : undefined;
 				this.startSearch(workspacePath);
+			} else if (glob !== null) {
+				// Glob unchanged, text changed — re-filter without restarting rg
+				this.quickPick.items = this.buildItems(text);
 			}
-			// No {ext} and input not empty: keep currentGlob as-is
 		});
 
 		this.quickPick.onDidAccept(() => {
@@ -103,12 +92,27 @@ export class TelescopePanel {
 			cwd,
 			(items) => {
 				this.allItems.push(...items);
-				this.quickPick.items = this.allItems.map(item => this.toPickItem(item));
+				const { text } = parseQuery(this.quickPick.value);
+				this.quickPick.items = this.buildItems(text);
 			},
 			() => {
 				this.quickPick.busy = false;
 			}
 		);
+	}
+
+	private buildItems(text: string): FilePickItem[] {
+		if (this.currentGlob !== null) {
+			// Glob active: apply our own fuzzy filter on the text part and mark
+			// all returned items as alwaysShow so VS Code's built-in filter (which
+			// can't match '{' / '}' in filenames) doesn't hide them.
+			return fuzzyFilter(text, this.allItems).map(item => ({
+				...this.toPickItem(item),
+				alwaysShow: true,
+			}));
+		}
+		// No glob: return everything and let VS Code's native filter run.
+		return this.allItems.map(item => this.toPickItem(item));
 	}
 
 	private toPickItem(item: ResultItem): FilePickItem {
