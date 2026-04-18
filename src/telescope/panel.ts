@@ -16,7 +16,7 @@ export class TelescopePanel {
 	private rgProcess: ChildProcess | undefined;
 	private allItems: ResultItem[] = [];
 	private currentGlob: string | null = null;
-	private settingValue = false;
+	private pendingValue: string | null = null;
 
 	private constructor() {
 		const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? '';
@@ -26,16 +26,18 @@ export class TelescopePanel {
 		this.quickPick.matchOnDescription = true;
 
 		this.quickPick.onDidChangeValue((value) => {
-			if (this.settingValue) { return; }
+			if (this.pendingValue !== null && value === this.pendingValue) {
+				this.pendingValue = null;
+				return;
+			}
 			const { text, glob } = parseQuery(value);
 			if (glob !== this.currentGlob) {
 				this.currentGlob = glob;
 				this.startSearch(workspacePath);
 			}
 			if (glob !== null) {
-				this.settingValue = true;
+				this.pendingValue = text;
 				this.quickPick.value = text;
-				this.settingValue = false;
 			}
 		});
 

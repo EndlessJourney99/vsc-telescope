@@ -114,9 +114,10 @@ export class ContentSearchPanel {
 		if (!query.trim()) { return; }
 
 		const { text, glob } = parseQuery(query);
+		if (!text.trim()) { return; }
 
 		this.rgProcess = spawnRipgrepContent(
-			text || query,
+			text,
 			glob,
 			cwd,
 			(items) => {
