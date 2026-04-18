@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { ChildProcess } from 'child_process';
 import { spawnRipgrepContent } from './ripgrepContent';
 import { parseQuery } from './queryParser';
+import { getFilePreview } from './preview';
 import { WebviewMessage } from '../types/messages';
 
 function generateNonce(): string {
@@ -11,15 +12,6 @@ function generateNonce(): string {
 		text += possible.charAt(Math.floor(Math.random() * possible.length));
 	}
 	return text;
-}
-
-async function getFilePreview(filePath: string): Promise<{ content: string; language: string }> {
-	try {
-		const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(filePath));
-		return { content: doc.getText(), language: doc.languageId };
-	} catch {
-		return { content: '(Unable to preview file)', language: 'plaintext' };
-	}
 }
 
 export class ContentSearchPanel {
