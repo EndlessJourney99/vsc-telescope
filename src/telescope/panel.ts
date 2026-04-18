@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { ChildProcess } from 'child_process';
 import { spawnRipgrep } from './ripgrep';
+import { parseQuery } from './queryParser';
 import { ResultItem } from '../types/messages';
 
 interface FilePickItem extends vscode.QuickPickItem {
@@ -14,13 +15,29 @@ export class TelescopePanel {
 	private readonly quickPick: vscode.QuickPick<FilePickItem>;
 	private rgProcess: ChildProcess | undefined;
 	private allItems: ResultItem[] = [];
+	private currentGlob: string | null = null;
+	private settingValue = false;
 
 	private constructor() {
 		const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? '';
 
 		this.quickPick = vscode.window.createQuickPick<FilePickItem>();
-		this.quickPick.placeholder = 'Find files... (Tab / Shift+Tab to navigate)';
+		this.quickPick.placeholder = 'Find files... type {ext} to filter by file type';
 		this.quickPick.matchOnDescription = true;
+
+		this.quickPick.onDidChangeValue((value) => {
+			if (this.settingValue) { return; }
+			const { text, glob } = parseQuery(value);
+			if (glob !== this.currentGlob) {
+				this.currentGlob = glob;
+				this.startSearch(workspacePath);
+			}
+			if (glob !== null) {
+				this.settingValue = true;
+				this.quickPick.value = text;
+				this.settingValue = false;
+			}
+		});
 
 		this.quickPick.onDidAccept(() => {
 			const selected = this.quickPick.activeItems[0];
@@ -72,7 +89,7 @@ export class TelescopePanel {
 		this.quickPick.busy = true;
 
 		this.rgProcess = spawnRipgrep(
-			'',
+			this.currentGlob,
 			cwd,
 			(items) => {
 				this.allItems.push(...items);
