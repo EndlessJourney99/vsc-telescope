@@ -52,7 +52,7 @@ window.addEventListener('message', (event: MessageEvent) => {
 		case 'content:done':
 			break;
 		case 'content:preview':
-			ui.setPreview(msg.filePath, msg.content, msg.lineNumber);
+			ui.setPreview(msg.filePath, msg.content, msg.language, msg.lineNumber);
 			break;
 		case 'init':
 			break;

@@ -1,4 +1,71 @@
 import { ResultItem, ContentResultItem } from '../types/messages';
+import hljs from 'highlight.js/lib/core';
+import typescript from 'highlight.js/lib/languages/typescript';
+import javascript from 'highlight.js/lib/languages/javascript';
+import python from 'highlight.js/lib/languages/python';
+import java from 'highlight.js/lib/languages/java';
+import xml from 'highlight.js/lib/languages/xml';
+import css from 'highlight.js/lib/languages/css';
+import json from 'highlight.js/lib/languages/json';
+import bash from 'highlight.js/lib/languages/bash';
+import go from 'highlight.js/lib/languages/go';
+import rust from 'highlight.js/lib/languages/rust';
+import cpp from 'highlight.js/lib/languages/cpp';
+import csharp from 'highlight.js/lib/languages/csharp';
+import yaml from 'highlight.js/lib/languages/yaml';
+import sql from 'highlight.js/lib/languages/sql';
+import markdown from 'highlight.js/lib/languages/markdown';
+import plaintext from 'highlight.js/lib/languages/plaintext';
+
+hljs.registerLanguage('typescript', typescript);
+hljs.registerLanguage('javascript', javascript);
+hljs.registerLanguage('python', python);
+hljs.registerLanguage('java', java);
+hljs.registerLanguage('xml', xml);
+hljs.registerLanguage('css', css);
+hljs.registerLanguage('json', json);
+hljs.registerLanguage('bash', bash);
+hljs.registerLanguage('go', go);
+hljs.registerLanguage('rust', rust);
+hljs.registerLanguage('cpp', cpp);
+hljs.registerLanguage('csharp', csharp);
+hljs.registerLanguage('yaml', yaml);
+hljs.registerLanguage('sql', sql);
+hljs.registerLanguage('markdown', markdown);
+hljs.registerLanguage('plaintext', plaintext);
+
+const LANG_MAP: Record<string, string> = {
+	typescript: 'typescript',
+	javascript: 'javascript',
+	typescriptreact: 'typescript',
+	javascriptreact: 'javascript',
+	python: 'python',
+	java: 'java',
+	html: 'xml',
+	xml: 'xml',
+	css: 'css',
+	json: 'json',
+	jsonc: 'json',
+	shellscript: 'bash',
+	bash: 'bash',
+	go: 'go',
+	rust: 'rust',
+	cpp: 'cpp',
+	c: 'cpp',
+	csharp: 'csharp',
+	yaml: 'yaml',
+	markdown: 'markdown',
+	sql: 'sql',
+};
+
+function highlight(code: string, vscodeLang: string): string {
+	const lang = LANG_MAP[vscodeLang] ?? 'plaintext';
+	try {
+		return hljs.highlight(code, { language: lang, ignoreIllegals: true }).value;
+	} catch {
+		return escapeHtml(code);
+	}
+}
 
 const ITEM_HEIGHT = 42;
 const OVERSCAN = 5;
@@ -252,24 +319,28 @@ export class ContentUI {
 		this.render();
 	}
 
-	setPreview(filePath: string, content: string, lineNumber: number): void {
-		const filename = filePath.split('/').pop() ?? filePath;
-		this.previewHeader.textContent = `${filename}:${lineNumber}`;
+	setPreview(filePath: string, content: string, language: string, lineNumber: number): void {
+		this.previewHeader.innerHTML =
+			`<span class="preview-path">${escapeHtml(filePath)}</span>` +
+			`<span class="preview-lang">${escapeHtml(language)}</span>`;
 
-		const lines = content.split('\n');
-		this.previewLines.innerHTML = '';
+		const highlightedHtml = highlight(content, language);
+		const lines = highlightedHtml.split('\n');
 
-		lines.forEach((text, idx) => {
-			const lineEl = document.createElement('div');
-			lineEl.className = 'preview-line' + (idx + 1 === lineNumber ? ' preview-line-highlight' : '');
-			lineEl.textContent = text;
-			this.previewLines.appendChild(lineEl);
-		});
+		const rows = lines.map((lineHtml, idx) => {
+			const n = idx + 1;
+			const isMatch = n === lineNumber;
+			return `<tr class="code-row${isMatch ? ' code-row-match' : ''}">` +
+				`<td class="line-num" data-line="${n}">${n}</td>` +
+				`<td class="line-code">${lineHtml || ' '}</td>` +
+				`</tr>`;
+		}).join('');
 
-		// Scroll highlighted line into view in the preview pane
-		const highlighted = this.previewLines.querySelector('.preview-line-highlight') as HTMLElement | null;
-		if (highlighted) {
-			highlighted.scrollIntoView({ block: 'center' });
+		this.previewLines.innerHTML = `<table class="code-table"><tbody>${rows}</tbody></table>`;
+
+		const matchRow = this.previewLines.querySelector('.code-row-match') as HTMLElement | null;
+		if (matchRow) {
+			matchRow.scrollIntoView({ block: 'center' });
 		}
 	}
 
